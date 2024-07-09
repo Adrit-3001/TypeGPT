@@ -8,6 +8,7 @@ import sys
 from PIL import Image, ImageGrab  # Updated import
 import io
 
+
 class TypeGPT:
     def __init__(self):
         self.listening = False
@@ -17,6 +18,7 @@ class TypeGPT:
         self.model = 'chatgpt'  # Default model
         self.special_keys = {
             'command': False,
+            'ctrl': False,
             'shift': False,
             'v': False
         }
@@ -35,12 +37,12 @@ class TypeGPT:
     def on_release(self, key):
         if key == keyboard.Key.esc:
             return False
-        
+
         self.handle_special_keys(key, pressed=False)
 
-        if (key == keyboard.Key.enter and 
-            self.special_keys['command'] and 
-            self.special_keys['shift']):
+        if (key == keyboard.Key.enter and
+                (self.special_keys['command'] or self.special_keys['ctrl']) and
+                self.special_keys['shift']):
             self.process_enter_key()
 
         if self.should_quit:
@@ -50,8 +52,10 @@ class TypeGPT:
         key_mapping = {
             keyboard.Key.cmd: 'command',
             keyboard.Key.shift: 'shift',
+            keyboard.Key.ctrl_l: 'ctrl',
+            keyboard.Key.ctrl_r: 'ctrl',
         }
-        
+
         if key in key_mapping:
             self.special_keys[key_mapping[key]] = pressed
         elif isinstance(key, keyboard.KeyCode) and key.char == 'v':
@@ -68,7 +72,7 @@ class TypeGPT:
         self.captured_text = '/'
 
     def update_captured_text(self, char):
-        if self.special_keys['command'] and self.special_keys['v']:
+        if (self.special_keys['command'] or self.special_keys['ctrl']) and self.special_keys['v']:
             self.handle_paste()
         else:
             self.captured_text += char
@@ -99,7 +103,7 @@ class TypeGPT:
             '/llama3': lambda: self.select_model('llama3'),
             '/check': self.check_model
         }
-        
+
         for cmd, func in commands.items():
             if self.captured_text.endswith(cmd):
                 func()
@@ -152,12 +156,12 @@ class TypeGPT:
         self.type_output(' ...\n')
         prompt = text.strip()
         image_base64 = None
-        
+
         if '[IMAGE:' in prompt:
             parts = prompt.split('[IMAGE:', 1)
             prompt = parts[0]
             image_base64 = parts[1].split(']', 1)[0]
-        
+
         response = api_call(self.model, prompt, image_base64)
         self.type_output(response)
         self.screenshot = None
@@ -172,9 +176,10 @@ class TypeGPT:
     def run(self):
         with keyboard.Listener(on_press=self.on_press, on_release=self.on_release) as listener:
             listener.join()
-        
+
         if self.should_quit:
             sys.exit(0)  # Properly exit the program
+
 
 if __name__ == "__main__":
     typegpt = TypeGPT()
